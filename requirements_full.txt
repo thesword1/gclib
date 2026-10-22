@@ -10,7 +10,7 @@ imagequant==1.1.5
     # via gclib (pyproject.toml)
 numpy==2.2.3
     # via gclib (pyproject.toml)
-pillow==12.2.0
+pillow==13.0.0
     # via gclib (pyproject.toml)
 pycparser==2.22
     # via cffi
