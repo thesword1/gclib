@@ -23,5 +23,5 @@ dependencies = [
 speedups = [
   "PyFastBTI @ git+https://github.com/LagoLunatic/PyFastBTI.git@13b24b028b62d199740044f15085f70878ea80a4",
   "PyFastTextureUtils @ git+https://github.com/LagoLunatic/PyFastTextureUtils.git@ec40de927daa6b59485e34ea01b8bab1ecd1a31a",
-  "PyFastYaz0Yay0 @ git+https://github.com/LagoLunatic/PyFastYaz0Yay0.git@2adb8a8c00d98f98f245e0304094a0610203a82e",
+  "PyFastYaz0Yay0 @ git+https://github.com/LagoLunatic/PyFastYaz0Yay0.git@00e19626ab17621416d4b9055b17f0ea3fea66f3",
 ]
