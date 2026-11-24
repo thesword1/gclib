@@ -25,6 +25,11 @@ from gclib.fs_helpers import u32, u24, u16, u8, s32, s16, s8, u16Rot, FixedStr, 
 
 T = TypeVar('T')
 
+def _issubclass(t, cls) -> bool:
+  # issubclass() raises TypeError on Python 3.14 when the first argument is a
+  # GenericAlias (e.g. list[u16] or FixedStr[8]), but returned False on <=3.12.
+  return isinstance(t, type) and issubclass(t, cls)
+
 # A sentinel object to detect if a field with no default value hasn't been read yet.
 # Use a class to give it a better repr.
 class _UNREAD_TYPE:
@@ -218,18 +223,18 @@ class BUNFOE:
   def get_byte_size(field_type: Type) -> int:
     if field_type in fs.PRIMITIVE_TYPE_TO_BYTE_SIZE:
       return fs.PRIMITIVE_TYPE_TO_BYTE_SIZE[field_type]
-    elif field_type == bool or issubclass(field_type, MappedBool):
+    elif field_type == bool or _issubclass(field_type, MappedBool):
       return BUNFOE.get_byte_size(u8)
-    elif issubclass(field_type, u16Rot):
+    elif _issubclass(field_type, u16Rot):
       return BUNFOE.get_byte_size(u16)
     elif isinstance(field_type, GenericAlias) and field_type.__origin__ in [FixedStr, MagicStr]:
       return typing.get_args(field_type)[0]
-    elif issubclass(field_type, Enum):
+    elif _issubclass(field_type, Enum):
       for base_class in field_type.__mro__:
         if issubclass(base_class, int) and base_class in fs.PRIMITIVE_TYPE_TO_BYTE_SIZE:
           return BUNFOE.get_byte_size(base_class)
       raise TypeError(f"Enum {field_type} must inherit from a primitive int subclass.")
-    elif issubclass(field_type, BUNFOE):
+    elif _issubclass(field_type, BUNFOE):
       # NOTE: This currently relies on the class defining all fields, including any trailing
       # padding. Maybe in the future it could double check a DATA_SIZE/BYTE_SIZE constant.
       size = 0
@@ -399,19 +404,19 @@ class BUNFOE:
     
     if field_type == bool:
       assert raw_value in [0, 1], f"Boolean must be zero or one, but got value: {raw_value}"
-    elif issubclass(field_type, MappedBool):
+    elif _issubclass(field_type, MappedBool):
       assert PRINT_INVALID_VALUE_WARNINGS and raw_value in field_type.VALID_VALUES, f"Boolean value not valid: {raw_value}"
     
-    if issubclass(field_type, Enum):
+    if _issubclass(field_type, Enum):
       if raw_value in field_type:
         value = field_type(raw_value)
       else:
         if PRINT_INVALID_VALUE_WARNINGS:
           print(f"Invalid value for enum {field_type}: {raw_value}")
         value = raw_value
-    elif issubclass(field_type, int) or issubclass(field_type, bool):
+    elif _issubclass(field_type, int) or _issubclass(field_type, bool):
       value = field_type(raw_value)
-    elif issubclass(field_type, float):
+    elif _issubclass(field_type, float):
       value = field_type(fs.bit_cast_int_to_float(raw_value))
     else:
       raise NotImplementedError(f"Reading type {field_type} from a bitfield is not currently implemented")
@@ -426,16 +431,16 @@ class BUNFOE:
       raw_value = self.read_value(u8, offset)
       assert raw_value in [0, 1], f"Boolean must be zero or one, but got value: {raw_value}"
       return bool(raw_value)
-    elif issubclass(field_type, MappedBool):
+    elif _issubclass(field_type, MappedBool):
       raw_value = self.read_value(u8, offset)
       assert raw_value in field_type.VALID_VALUES, f"Boolean value not valid: {raw_value}"
       return field_type(raw_value)
-    elif issubclass(field_type, u16Rot):
+    elif _issubclass(field_type, u16Rot):
       return self.read_value(u16, offset)
     elif isinstance(field_type, GenericAlias) and field_type.__origin__ in [FixedStr, MagicStr]:
       str_len = typing.get_args(field_type)[0]
       return fs.read_str(self.data, offset, str_len)
-    elif issubclass(field_type, Enum):
+    elif _issubclass(field_type, Enum):
       for base_class in field_type.__mro__:
         if issubclass(base_class, int) and base_class in fs.PRIMITIVE_TYPE_TO_BYTE_SIZE:
           raw_value = self.read_value(base_class, offset)
@@ -446,7 +451,7 @@ class BUNFOE:
               print(f"Invalid value for enum {field_type}: {raw_value}")
             return raw_value
       raise TypeError(f"Enum {field_type} must inherit from a primitive int subclass.")
-    elif issubclass(field_type, BUNFOE):
+    elif _issubclass(field_type, BUNFOE):
       value = field_type(self.data)
       value.read(offset)
       return value
@@ -556,16 +561,16 @@ class BUNFOE:
     bit_mask = ((1 << bits) - 1) << bit_offset
     bitfield_value &= ~bit_mask
     
-    if issubclass(field_type, Enum):
+    if _issubclass(field_type, Enum):
       if isinstance(value, field_type):
         raw_value = value.value
       elif isinstance(value, int):
         raw_value = value
       else:
         raise TypeError(f"Invalid value {repr(value)}, expected to have type {field_type} but was {type(value)} instead.")
-    elif issubclass(field_type, int) or issubclass(field_type, bool):
+    elif _issubclass(field_type, int) or _issubclass(field_type, bool):
       raw_value = int(value) # TODO: use field_type?
-    elif issubclass(field_type, float):
+    elif _issubclass(field_type, float):
       raw_value = fs.bit_cast_float_to_int(value)
     else:
       raise NotImplementedError(f"Writing type {field_type} to a bitfield is not currently implemented")
@@ -579,7 +584,7 @@ class BUNFOE:
       write_func(self.data, offset, value)
     elif field_type == bool:
       self.save_value(u8, offset, int(value))
-    elif issubclass(field_type, MappedBool):
+    elif _issubclass(field_type, MappedBool):
       if isinstance(value, bool):
         raw_value = int(value)
       elif isinstance(value, MappedBool):
@@ -587,7 +592,7 @@ class BUNFOE:
       else:
         raise Exception(f"Invalid MappedBool: {value!r}")
       self.save_value(u8, offset, raw_value)
-    elif issubclass(field_type, u16Rot):
+    elif _issubclass(field_type, u16Rot):
       self.save_value(u16, offset, value)
     elif isinstance(field_type, GenericAlias) and field_type.__origin__ == FixedStr:
       str_len = typing.get_args(field_type)[0]
@@ -595,7 +600,7 @@ class BUNFOE:
     elif isinstance(field_type, GenericAlias) and field_type.__origin__ == MagicStr:
       str_len = typing.get_args(field_type)[0]
       fs.write_magic_str(self.data, offset, value, str_len)
-    elif issubclass(field_type, Enum):
+    elif _issubclass(field_type, Enum):
       for base_class in field_type.__mro__:
         if issubclass(base_class, int) and base_class in fs.PRIMITIVE_TYPE_TO_BYTE_SIZE:
           if isinstance(value, field_type):
@@ -607,7 +612,7 @@ class BUNFOE:
           self.save_value(base_class, offset, raw_value)
           return
       raise TypeError(f"Enum {field_type} must inherit from a primitive int subclass.")
-    elif issubclass(field_type, BUNFOE):
+    elif _issubclass(field_type, BUNFOE):
       value.save(offset)
     else:
       raise NotImplementedError
