@@ -1,5 +1,6 @@
 from types import UnionType
 from io import BytesIO
+import inspect
 
 from gclib import fs_helpers as fs
 from gclib.jchunk import JPAChunk
@@ -25,15 +26,7 @@ class JParticle:
   # fld1: list[FLD1] # TODO: properly handle lists of fields
   # kfa1: list[KFA1]
   tdb1: TDB1 | None
-  
-  CHUNK_TYPES = {
-    chunk_class.__name__: chunk_class
-    for chunk_class in [
-      chunk_class.__args__[0] if isinstance(chunk_class, UnionType) else chunk_class
-      for chunk_class in __annotations__.values()
-    ]
-  }
-  
+
   def __init__(self, jpc_data, particle_offset, jpac_version: JPACVersion):
     self.bem1 = None
     self.bsp1 = None
@@ -113,7 +106,7 @@ class JParticle:
     return true_size
   
   def verify_valid_chunks(self):
-    class_attrs = type(self).__annotations__
+    class_attrs = inspect.get_annotations(type(self))
     for chunk_magic, chunk_class in self.CHUNK_TYPES.items():
       chunk_attr = chunk_magic.lower()
       if chunk_attr in class_attrs:
@@ -158,6 +151,14 @@ class JParticle:
       fs.write_u8(self.data, 0x5, self.num_kfa1_chunks)
       fs.write_u8(self.data, 0x6, self.num_textures)
       fs.write_u8(self.data, 0x7, self.unknown_7)
+
+JParticle.CHUNK_TYPES = {
+  chunk_class.__name__: chunk_class
+  for chunk_class in [
+    chunk_class.__args__[0] if isinstance(chunk_class, UnionType) else chunk_class
+    for chunk_class in inspect.get_annotations(JParticle).values()
+  ]
+}
 
 class JParticle100(JParticle):
   bem1: BEM1_JPC100

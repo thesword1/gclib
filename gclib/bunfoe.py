@@ -6,6 +6,8 @@ from types import GenericAlias
 import typing
 import types
 import functools
+import inspect
+import reprlib
 from io import BytesIO
 import copy
 
@@ -69,7 +71,7 @@ class Field(dataclasses.Field):
     self.assert_default = assert_default
     self.manual_read = manual_read
 
-  @dataclasses._recursive_repr
+  @reprlib.recursive_repr()
   def __repr__(self):
     return ('Field('
             f'name={self.name!r},'
@@ -131,7 +133,7 @@ def fields(class_or_instance, include_ignored=False) -> tuple[Field, ...]:
 
 def _process_class(cls, init, repr, eq, order, unsafe_hash, frozen,
                    match_args, kw_only, slots, weakref_slot):
-  cls_annotations = cls.__dict__.get('__annotations__', {})
+  cls_annotations = inspect.get_annotations(cls)
   for field_name, field_type in cls_annotations.items():
     default = getattr(cls, field_name, MISSING)
     if not isinstance(default, Field):

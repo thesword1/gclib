@@ -1,4 +1,5 @@
 from types import UnionType
+import inspect
 from gclib import fs_helpers as fs
 from gclib.gclib_file import GCLibFile
 from gclib.jchunk import JChunk
@@ -37,15 +38,7 @@ class J3D(GCLibFile):
   tpt1: TPT1 | None
   anf1: ANF1 | None
   vaf1: VAF1 | None
-  
-  CHUNK_TYPES = {
-    chunk_class.__name__: chunk_class
-    for chunk_class in [
-      chunk_class.__args__[0] if isinstance(chunk_class, UnionType) else chunk_class
-      for chunk_class in __annotations__.values()
-    ]
-  }
-  
+
   def __init__(self, flexible_data = None):
     super().__init__(flexible_data)
     
@@ -116,7 +109,7 @@ class J3D(GCLibFile):
     # self.verify_valid_chunks()
   
   def verify_valid_chunks(self):
-    class_attrs = type(self).__annotations__
+    class_attrs = inspect.get_annotations(type(self))
     for chunk_magic, chunk_class in self.CHUNK_TYPES.items():
       chunk_attr = chunk_magic.lower()
       if chunk_attr in class_attrs:
@@ -154,6 +147,14 @@ class J3D(GCLibFile):
     fs.write_u32(data, 8, self.length)
     fs.write_u32(data, 0xC, self.num_chunks)
     fs.write_u32(data, 0x1C, self.bck_sound_data_offset)
+
+J3D.CHUNK_TYPES = {
+  chunk_class.__name__: chunk_class
+  for chunk_class in [
+    chunk_class.__args__[0] if isinstance(chunk_class, UnionType) else chunk_class
+    for chunk_class in inspect.get_annotations(J3D).values()
+  ]
+}
 
 class BMD(J3D):
   KNOWN_MAGICS = ["J3D2"]
